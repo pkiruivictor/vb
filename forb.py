@@ -7,29 +7,20 @@ import concurrent.futures
 import requests
 from ipaddress import IPv4Network, IPv4Address
 
-# Function to execute the command and return the response
-def execute_command(command, timeout):
+def check_server(ip, timeout, output_file):
     try:
-        completed_process = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
-        response = completed_process.stdout
-        return response
-    except subprocess.TimeoutExpired:
-        return "Timeout occurred while executing command."
-    except Exception as e:
-        return str(e)
-
-# Function to check if an IP is alive using wget
-def check_ip_alive(ip, timeout):
-    try:
-        response = requests.get(f"http://{ip}", timeout=timeout)
-        if response.status_code == 200:
-            return True
-        elif response.status_code == 403:
-            return "Forbidden"
+        url = f"http://{ip}"
+        response = requests.get(url, timeout=timeout)
+        if 'Server' in response.headers:
+            server_header = response.headers['Server']
+            print(colored(f"{ip} - Alive", 'green'))
+            print(colored(f"Server: {server_header}", 'green'))
+            with open(output_file, 'a') as f:
+                f.write(f"{ip} - {server_header}\n")
         else:
-            return False
-    except requests.exceptions.RequestException:
-        return False
+            print(colored(f"{ip} - HOST DEAD", 'red'))
+    except requests.RequestException as e:
+        print(colored(f"{ip} - HOST DEAD", 'red'))
 
 # Generator function to yield chunks of IP addresses from a list
 def chunk_ip_addresses(ip_addresses, chunk_size):
@@ -38,16 +29,7 @@ def chunk_ip_addresses(ip_addresses, chunk_size):
 
 # Function to process an IP address
 def process_ip(ip, timeout, output_file):
-    result = check_ip_alive(ip, timeout)
-    if result is True:
-        print(colored(f"{ip} is alive", "green"))
-        with open(output_file, "a") as f:
-            f.write(ip + "\n")
-    elif result == "Forbidden":
-        print(colored(f"{ip} is alive (Forbidden)", "green"))
-    else:
-        print(colored(f"{ip} is not alive", "red"))
-
+    check_server(ip, timeout, output_file)
 # Function to validate and generate IP addresses within a given range
 def generate_ip_addresses(start_ip, end_ip):
     start = int(IPv4Address(start_ip))
