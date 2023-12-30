@@ -51,16 +51,16 @@ def read_ip_addresses_from_file(filename):
 
 # Main function
 def main(max_workers=None, timeout=None, output_file=None):
-    input_ranges = "<ny1.txt" #input("Enter the CIDR ranges, IP address ranges, filename containing ip addresses, or filename containing such inputs (<filename) separated by commas: ").split(",")
+    input_ranges = input("Enter the CIDR ranges, IP address ranges, filename containing ip addresses, or filename containing such inputs (<filename) separated by commas: ").split(",")
 
     if max_workers is None:
-        max_workers = 1 #int(input("Enter the number of threads (the greater the number the faster). Maximum number: 48: "))
+        max_workers = int(input("Enter the number of threads (the greater the number the faster). Maximum number: 48: "))
 
     if timeout is None:
-        timeout = 4 #int(input("Enter the timeout period (in seconds): "))
+        timeout = int(input("Enter the timeout period (in seconds): "))
 
     if output_file is None:
-        output_file = "ony1.txt" #input("Enter the name of the file to save the results: ")
+        output_file = input("Enter the name of the file to save the results: ")
 
     chunk_size = 12800
 
