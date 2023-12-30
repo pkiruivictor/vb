@@ -6,32 +6,30 @@ from termcolor import colored
 import concurrent.futures
 from ipaddress import IPv4Network, IPv4Address
 
-# Function to execute the wget command and return the response
-def execute_wget(ip, timeout):
+# Function to execute the command and return the response
+def execute_command(command, timeout):
     try:
-        command = f"wget --timeout={timeout} --tries=1 --quiet http://{ip}"
         completed_process = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
         response = completed_process.stdout
         return response
     except subprocess.TimeoutExpired:
-        return "Timeout occurred while executing wget command."
+        return "Timeout occurred while executing command."
     except Exception as e:
         return str(e)
 
-# Generator function to yield chunks of IP addresses from a list
-def chunk_ip_addresses(ip_addresses, chunk_size):
-    for i in range(0, len(ip_addresses), chunk_size):
-        yield ip_addresses[i:i+chunk_size]
+# Function to retrieve content from the IP address using wget
+def retrieve_content(ip, timeout):
+    try:
+        response = subprocess.run(['wget', f'http://{ip}'], capture_output=True, text=True, timeout=timeout)
+        if "Forbidden" in response.stderr:
+            print(colored(f"{ip} is alive", "green"))
+            with open(output_file, "a") as f:
+                f.write(ip + "\n")
+    except subprocess.TimeoutExpired:
+        return "Timeout occurred while retrieving content."
+    except Exception as e:
+        return str(e)
 
-# Function to process an IP address
-def process_ip(ip, timeout, output_file):
-    response = execute_wget(ip, timeout)
-    if "403 Forbidden" in response:
-        print(colored(f"{ip} is alive", "green"))
-        with open(output_file, "a") as f:
-            f.write(ip + "\n")
-    else:
-        print(colored(f"{ip} is not alive", "red"))
 # Function to validate and generate IP addresses within a given range
 def generate_ip_addresses(start_ip, end_ip):
     start = int(IPv4Address(start_ip))
@@ -39,28 +37,18 @@ def generate_ip_addresses(start_ip, end_ip):
     ip_addresses = [str(IPv4Address(ip)) for ip in range(start, end + 1)]
     return ip_addresses
 
-# Function to read IP addresses from a file
-def read_ip_addresses_from_file(filename):
-    ip_addresses = []
-    with open(filename, "r") as f:
-        for line in f:
-            ip = line.strip()
-            if ip:
-                ip_addresses.append(ip)
-    return ip_addresses
-
 # Main function
 def main(max_workers=None, timeout=None, output_file=None):
-    input_ranges = input("Enter the CIDR ranges, IP address ranges, filename containing ip addresses, or filename containing such inputs (<filename) separated by commas: ").split(",")
+    input_ranges = "in.txt".split(",") # input("Enter the CIDR ranges, IP address ranges, filename containing ip addresses, or filename containing such inputs (<filename) separated by commas: ").split(",")
 
     if max_workers is None:
         max_workers = int(input("Enter the number of threads (the greater the number the faster). Maximum number: 48: "))
 
     if timeout is None:
-        timeout = int(input("Enter the timeout period (in seconds): "))
+        timeout = 4 # int(input("Enter the timeout period (in seconds): "))
 
     if output_file is None:
-        output_file = input("Enter the name of the file to save the results: ")
+        output_file = "out.txt" # input("Enter the name of the file to save the results: ")
 
     chunk_size = 12800
 
@@ -117,7 +105,7 @@ def main(max_workers=None, timeout=None, output_file=None):
                 ip_addresses = read_ip_addresses_from_file(input_range)
 
             for chunk in chunk_ip_addresses(ip_addresses, chunk_size):
-                futures = [executor.submit(process_ip, ip, timeout, output_file) for ip in chunk]
+                futures = [executor.submit(retrieve_content, ip, timeout) for ip in chunk]
                 for future in concurrent.futures.as_completed(futures):
                     pass
 
@@ -134,7 +122,7 @@ def main(max_workers=None, timeout=None, output_file=None):
         for input_range in invalid_inputs:
             print(colored(input_range, "red"))
 
-        retry = "n" #input(colored("\nDo you want to retry with valid input ranges? (y/n): ", "red"))
+        retry = "n" # input(colored("\nDo you want to retry with valid input ranges? (y/n): ", "red"))
         if retry.lower() == "y":
             main(max_workers, timeout, output_file)
 
